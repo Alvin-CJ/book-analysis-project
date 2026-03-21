@@ -1,20 +1,8 @@
-"""
-PageTurn Analytics — main.py
-Flask API that serves your real Goodreads books.csv data to the dashboard.
-
-Install dependencies (run once in your project folder):
-    pip install flask pandas numpy
-
-Run:
-    python main.py
-
-Then open:  http://localhost:5000
-"""
-
 import os, numpy as np, pandas as pd
 from flask import Flask, jsonify, request, send_from_directory
 
 app = Flask(__name__, static_folder="../frontend")
+port = int(os.environ.get("PORT", 10000))
 
 # ── Load & clean ──────────────────────────────────────────────────────────────
 CSV_PATH = os.path.join(os.path.dirname(__file__), "..", "data", "books.csv")
@@ -31,21 +19,38 @@ def load_data():
     df = df[df["average_rating"] > 0]
     df["year"] = pd.to_datetime(df["publication_date"], errors="coerce").dt.year.fillna(0).astype(int)
 
-    # Genre classification
-    fiction_kw    = ["novel","fantasy","romance","magic","witch","vampire","dragon","love",
-                     "heart","princess","wizard","elf","myth","fairy","ghost","haunted",
-                     "mystery","detective","spy","adventure","quest","warrior"]
-    nonfiction_kw = ["guide","history","science","biography","memoir","philosophy",
-                     "how to","psychology","business","economics","politics","religion",
-                     "self","success","leadership","finance","health","diet","fitness"]
     def classify(title):
         t = str(title).lower()
-        if any(k in t for k in fiction_kw):    return "Fiction"
-        if any(k in t for k in nonfiction_kw): return "Non-Fiction"
+        if any(k in t for k in ["horror","haunted","ghost","scary","fear","terror","dark","evil","demon"]):
+            return "Horror"
+        if any(k in t for k in ["romance","love","heart","kiss","wedding","bride","passion","desire"]):
+            return "Romance"
+        if any(k in t for k in ["sci-fi","space","galaxy","robot","alien","future","star","cyberpunk"]):
+            return "Sci-Fi"
+        if any(k in t for k in ["fantasy","magic","wizard","dragon","elf","witch","myth","fairy","warrior","kingdom"]):
+            return "Fantasy"
+        if any(k in t for k in ["mystery","detective","crime","murder","thriller","spy","suspense"]):
+            return "Mystery & Thriller"
+        if any(k in t for k in ["adventure","journey","explore","survival","expedition"]):
+            return "Adventure"
+        if any(k in t for k in ["biography","memoir","autobiography","diary"]):
+            return "Biography"
+        if any(k in t for k in ["history","war","ancient","civilization","empire","revolution"]):
+            return "History"
+        if any(k in t for k in ["science","physics","biology","chemistry","evolution","cosmos"]):
+            return "Science"
+        if any(k in t for k in ["self","success","habit","mindset","leadership","motivation","productivity"]):
+            return "Self-Help"
+        if any(k in t for k in ["philosophy","wisdom","ethics","logic","truth","meaning"]):
+            return "Philosophy"
+        if any(k in t for k in ["business","economics","finance","money","invest","market","entrepreneur"]):
+            return "Business"
+        if any(k in t for k in ["psychology","mind","behavior","emotion","mental","brain","therapy"]):
+            return "Psychology"
         return "Fiction"
+
     df["genre"] = df["title"].apply(classify)
 
-    # Simulated demographics
     np.random.seed(42)
     df["age"]       = np.random.randint(15, 60, size=len(df))
     df["age_group"] = pd.cut(df["age"], bins=[10,20,30,40,50,60],
@@ -131,10 +136,10 @@ def age_groups():
     ag = (DF.groupby("age_group", observed=True)
             .agg(count=("bookID","count"), fiction_count=("genre", lambda x: (x=="Fiction").sum()))
             .reset_index())
-    ag["age_group"]       = ag["age_group"].astype(str)
-    ag["nonfiction_count"]= ag["count"] - ag["fiction_count"]
-    ag["fiction_pct"]     = (ag["fiction_count"]    / ag["count"] * 100).round(1)
-    ag["nonfiction_pct"]  = (ag["nonfiction_count"] / ag["count"] * 100).round(1)
+    ag["age_group"]        = ag["age_group"].astype(str)
+    ag["nonfiction_count"] = ag["count"] - ag["fiction_count"]
+    ag["fiction_pct"]      = (ag["fiction_count"]    / ag["count"] * 100).round(1)
+    ag["nonfiction_pct"]   = (ag["nonfiction_count"] / ag["count"] * 100).round(1)
     return jsonify(ag.to_dict(orient="records"))
 
 @app.route("/api/states")
@@ -192,5 +197,4 @@ def filters():
 
 if __name__ == "__main__":
     print("\n🚀  PageTurn API →  http://localhost:5000\n")
-    port = int(os.environ.get("PORT", 5000))
     app.run(debug=False, host="0.0.0.0", port=port)
