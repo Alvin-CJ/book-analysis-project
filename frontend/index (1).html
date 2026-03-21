@@ -127,7 +127,7 @@ code{background:rgba(255,255,255,.07);padding:2px 7px;border-radius:4px;font-siz
 <main class="main">
 
 <div class="err-banner" id="err-banner">
-  ⚠️ Cannot reach the Flask API at <strong>localhost:5000</strong>. Run <code>python main.py</code> in your project folder, then refresh.
+  ⚠️ Cannot reach the Flask API. Run <code>python main.py</code> then refresh.
 </div>
 
 <!-- DASHBOARD -->
@@ -144,7 +144,7 @@ code{background:rgba(255,255,255,.07);padding:2px 7px;border-radius:4px;font-siz
   </div>
   <div class="charts-row col-2">
     <div class="chart-card"><div class="chart-hdr"><div class="chart-title">Publication Year Trend</div><span class="badge bg">1990–2020</span></div><canvas id="c-trend" height="180"></canvas></div>
-    <div class="chart-card"><div class="chart-hdr"><div class="chart-title">Fiction vs Non-Fiction</div><span class="badge bp">Split</span></div><canvas id="c-donut" height="180"></canvas></div>
+    <div class="chart-card"><div class="chart-hdr"><div class="chart-title">Genre Distribution</div><span class="badge bp">Split</span></div><canvas id="c-donut" height="180"></canvas></div>
   </div>
   <div class="charts-row col-3">
     <div class="chart-card"><div class="chart-hdr"><div class="chart-title">Most Read Books</div><span class="badge bb">Top 5</span></div><div id="top-books"><div class="spinner"><div class="spin"></div>Loading…</div></div></div>
@@ -210,18 +210,18 @@ code{background:rgba(255,255,255,.07);padding:2px 7px;border-radius:4px;font-siz
 <section class="page" id="page-genres">
   <div class="ph"><div><div class="ph-title">Genre <span>Insights</span></div><div class="ph-sub">Reading patterns across all genres</div></div></div>
   <div class="charts-row col-2">
-    <div class="chart-card"><div class="chart-hdr"><div class="chart-title">Total Reads by Genre</div><span class="badge bg">Bar</span></div><canvas id="c-gbar" height="240"></canvas></div>
-    <div class="chart-card"><div class="chart-hdr"><div class="chart-title">Genre Share</div><span class="badge bp">Pie</span></div><canvas id="c-gpie" height="240"></canvas></div>
+    <div class="chart-card"><div class="chart-hdr"><div class="chart-title">Total Reads by Genre</div><span class="badge bg">Bar</span></div><canvas id="c-gbar" height="280"></canvas></div>
+    <div class="chart-card"><div class="chart-hdr"><div class="chart-title">Genre Share</div><span class="badge bp">Pie</span></div><canvas id="c-gpie" height="280"></canvas></div>
   </div>
-  <div class="charts-row col-1-2">
-    <div class="chart-card"><div class="chart-hdr"><div class="chart-title">Avg Rating by Genre</div><span class="badge bg">Stars</span></div><canvas id="c-grat" height="220"></canvas></div>
-    <div class="chart-card"><div class="chart-hdr"><div class="chart-title">Fiction vs Non-Fiction by Age</div><span class="badge bb">Stacked</span></div><canvas id="c-gstack" height="220"></canvas></div>
+  <div class="chart-card">
+    <div class="chart-hdr"><div class="chart-title">Avg Rating by Genre</div><span class="badge bg">Stars</span></div>
+    <canvas id="c-grat" height="160"></canvas>
   </div>
 </section>
 
 <!-- DEMOGRAPHICS -->
 <section class="page" id="page-demographics">
-  <div class="ph"><div><div class="ph-title">Reader <span>Demographics</span></div><div class="ph-sub">Age & state breakdown (simulated from dataset)</div></div></div>
+  <div class="ph"><div><div class="ph-title">Reader <span>Demographics</span></div><div class="ph-sub">Age & state breakdown</div></div></div>
   <div class="charts-row col-2">
     <div class="chart-card"><div class="chart-hdr"><div class="chart-title">Age Group Distribution</div><span class="badge bv">Groups</span></div><canvas id="c-dage" height="230"></canvas></div>
     <div class="chart-card"><div class="chart-hdr"><div class="chart-title">State-wise Readership</div><span class="badge bb">India</span></div><canvas id="c-state" height="230"></canvas></div>
@@ -235,20 +235,22 @@ code{background:rgba(255,255,255,.07);padding:2px 7px;border-radius:4px;font-siz
 </main>
 
 <script>
-const API = "https://book-analysis-project.onrender.com/api";
+// ── CONFIG ── change this to your Render URL when deployed
+const API = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+  ? `http://${window.location.hostname}:${window.location.port}/api`
+  : window.location.origin + '/api';
+
 Chart.defaults.color='#777770';Chart.defaults.borderColor='#252525';Chart.defaults.font.family='DM Sans';
 let CHS={};
 const dc=k=>{if(CHS[k]){CHS[k].destroy();delete CHS[k];}};
-const PALETTE=['#e8c97e','#7eb8e8','#e87e9e','#7ec89e','#b07ee8','#e8a87e','#7ee8c9','#c9e87e','#e8c97e','#7eb8e8'];
-const GC={Fiction:'#e87e9e','Non-Fiction':'#7eb8e8'};
+const PALETTE=['#e8c97e','#7eb8e8','#e87e9e','#7ec89e','#b07ee8','#e8a87e','#7ee8c9','#c9e87e','#a87ee8','#e87ec9','#7ea8e8','#e8e87e','#e87e7e'];
 const fmt=n=>n>=1e9?(n/1e9).toFixed(1)+'B':n>=1e6?(n/1e6).toFixed(1)+'M':n>=1e3?(n/1e3).toFixed(1)+'K':String(n);
 let bkPage=1,bkSK='ratings_count',bkSD='desc';
 
-/* fetch wrapper */
 async function api(ep){
   try{
     const r=await fetch(API+ep);
-    if(!r.ok) throw new Error(r.status);
+    if(!r.ok)throw new Error(r.status);
     document.getElementById('err-banner').classList.remove('show');
     return await r.json();
   }catch(e){
@@ -257,11 +259,9 @@ async function api(ep){
   }
 }
 
-/* debounce */
 const _t={};
 function debounce(fn,ms){return(...a)=>{clearTimeout(_t[fn.name]);_t[fn.name]=setTimeout(()=>fn(...a),ms);};}
 
-/* nav */
 document.querySelectorAll('.nav-item').forEach(el=>el.addEventListener('click',()=>{
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
@@ -278,7 +278,6 @@ async function loadDash(){
     api('/rating_dist'),api('/year_trend'),api('/genres')
   ]);
   if(!kpis)return;
-
   document.getElementById('dash-sub').textContent=`${fmt(kpis.total_books)} books · ${fmt(kpis.total_reads)} total reads`;
   document.getElementById('kpi-grid').innerHTML=`
     <div class="kpi"><div class="kpi-label">Total Reads</div><div class="kpi-val">${fmt(kpis.total_reads)}</div><div class="kpi-delta">▲ Real Goodreads data</div></div>
@@ -288,22 +287,17 @@ async function loadDash(){
 
   if(trend){
     const yrs=[...new Set(trend.map(d=>d.year))].sort();
-    const fD=yrs.map(y=>{const f=trend.find(d=>d.year===y&&d.genre==='Fiction');return f?f.reads:0;});
-    const nD=yrs.map(y=>{const f=trend.find(d=>d.year===y&&d.genre==='Non-Fiction');return f?f.reads:0;});
+    const genres=[...new Set(trend.map(d=>d.genre))];
     dc('tr');
-    CHS.tr=new Chart(document.getElementById('c-trend'),{type:'line',data:{labels:yrs,datasets:[
-      {label:'Fiction',data:fD,borderColor:'#e87e9e',backgroundColor:'rgba(232,126,158,.08)',tension:.4,fill:true,borderWidth:2,pointRadius:0,pointHoverRadius:5},
-      {label:'Non-Fiction',data:nD,borderColor:'#7eb8e8',backgroundColor:'rgba(126,184,232,.06)',tension:.4,fill:true,borderWidth:2,pointRadius:0,pointHoverRadius:5}
-    ]},options:{responsive:true,interaction:{mode:'index',intersect:false},plugins:{legend:{labels:{boxWidth:9,usePointStyle:true,pointStyle:'circle'}}},scales:{x:{grid:{display:false},ticks:{maxTicksLimit:10}},y:{grid:{color:'#1e1e1e'},ticks:{callback:v=>fmt(v)}}}}});
+    CHS.tr=new Chart(document.getElementById('c-trend'),{type:'line',data:{labels:yrs,datasets:genres.slice(0,5).map((g,i)=>({label:g,data:yrs.map(y=>{const f=trend.find(d=>d.year===y&&d.genre===g);return f?f.reads:0;}),borderColor:PALETTE[i],backgroundColor:PALETTE[i]+'15',tension:.4,fill:true,borderWidth:2,pointRadius:0,pointHoverRadius:5}))},options:{responsive:true,interaction:{mode:'index',intersect:false},plugins:{legend:{labels:{boxWidth:9,usePointStyle:true,pointStyle:'circle'}}},scales:{x:{grid:{display:false},ticks:{maxTicksLimit:10}},y:{grid:{color:'#1e1e1e'},ticks:{callback:v=>fmt(v)}}}}});
   }
 
   if(gdata){
     dc('dn');
-    CHS.dn=new Chart(document.getElementById('c-donut'),{type:'doughnut',data:{labels:gdata.map(g=>g.genre),datasets:[{data:gdata.map(g=>g.reads),backgroundColor:gdata.map((_,i)=>PALETTE[i%PALETTE.length]),borderColor:'#181818',borderWidth:3,hoverOffset:8}]},options:{cutout:'68%',plugins:{legend:{position:'bottom',labels:{boxWidth:9,usePointStyle:true,padding:12}}}}});
+    CHS.dn=new Chart(document.getElementById('c-donut'),{type:'doughnut',data:{labels:gdata.map(g=>g.genre),datasets:[{data:gdata.map(g=>g.reads),backgroundColor:gdata.map((_,i)=>PALETTE[i%PALETTE.length]),borderColor:'#181818',borderWidth:3,hoverOffset:8}]},options:{cutout:'60%',plugins:{legend:{position:'bottom',labels:{boxWidth:9,usePointStyle:true,padding:8,font:{size:10}}}}}});
   }
 
   if(top){
-    const mx=Math.max(...top.map(b=>b.ratings_count));
     document.getElementById('top-books').innerHTML=top.map((b,i)=>`
       <div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border)">
         <span style="font-family:'Playfair Display',serif;font-size:16px;color:var(--gold);opacity:${i<2?1:.5};width:20px;text-align:center">${i+1}</span>
@@ -352,10 +346,11 @@ async function loadBooks(){
   document.getElementById('book-cnt').textContent=`${fmt(data.total)} books`;
   document.getElementById('book-badge').innerHTML=`<div style="background:var(--card);border:1px solid var(--border);padding:8px 14px;border-radius:8px;font-size:11px;color:var(--muted);">📚 ${fmt(data.total)} results</div>`;
   const mx=Math.max(...data.books.map(b=>b.ratings_count),1);
+  const gc=(g)=>{const map={Horror:'#e87e9e',Romance:'#e87eb0','Sci-Fi':'#7eb8e8',Fantasy:'#b07ee8','Mystery & Thriller':'#e8c97e',Adventure:'#7ec89e',Biography:'#7ee8c9',History:'#e8a87e',Science:'#7ea8e8','Self-Help':'#c9e87e',Philosophy:'#a87ee8',Business:'#e8e87e',Psychology:'#e87e7e',Fiction:'#7eb8e8'};return map[g]||'#888';};
   document.getElementById('books-body').innerHTML=data.books.length?data.books.map(b=>`
     <tr>
       <td><div class="td-title">${b.title.length>52?b.title.substring(0,52)+'…':b.title}</div><div class="td-sub">${b.authors.split('/')[0]}</div></td>
-      <td><span class="genre-tag" style="color:${GC[b.genre]||'#aaa'};border-color:${GC[b.genre]||'#aaa'}30;background:${GC[b.genre]||'#aaa'}12">${b.genre}</span></td>
+      <td><span class="genre-tag" style="color:${gc(b.genre)};border-color:${gc(b.genre)}30;background:${gc(b.genre)}12">${b.genre}</span></td>
       <td><div class="rbar-wrap"><div class="rbar" style="width:${Math.round(b.ratings_count/mx*80)}px"></div><span style="font-size:12px;font-weight:600">${fmt(b.ratings_count)}</span></div></td>
       <td><span class="stars">${'★'.repeat(Math.round(b.average_rating))}</span> <span style="font-size:11px;color:var(--muted)">${b.average_rating}</span></td>
       <td style="color:var(--muted);font-size:12px">${b.year||'—'}</td>
@@ -393,13 +388,12 @@ async function loadAuthors(){
 
 /* ── GENRES ── */
 async function loadGenres(){
-  const[gd,ad]=await Promise.all([api('/genres'),api('/age_groups')]);if(!gd)return;
-  dc('gb');dc('gp');dc('gr');dc('gs');
+  const gd=await api('/genres');if(!gd)return;
+  dc('gb');dc('gp');dc('gr');
   const cols=gd.map((_,i)=>PALETTE[i%PALETTE.length]);
   CHS.gb=new Chart(document.getElementById('c-gbar'),{type:'bar',data:{labels:gd.map(g=>g.genre),datasets:[{data:gd.map(g=>g.reads),backgroundColor:cols,borderRadius:6,borderSkipped:false}]},options:{indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{grid:{color:'#1e1e1e'},ticks:{callback:v=>fmt(v)}},y:{grid:{display:false}}}}});
   CHS.gp=new Chart(document.getElementById('c-gpie'),{type:'pie',data:{labels:gd.map(g=>g.genre),datasets:[{data:gd.map(g=>g.reads),backgroundColor:cols,borderColor:'#181818',borderWidth:2,hoverOffset:8}]},options:{plugins:{legend:{position:'right',labels:{boxWidth:10,usePointStyle:true,padding:10,font:{size:11}}}}}});
   CHS.gr=new Chart(document.getElementById('c-grat'),{type:'bar',data:{labels:gd.map(g=>g.genre),datasets:[{data:gd.map(g=>g.avg_rating),backgroundColor:cols,borderRadius:5,borderSkipped:false}]},options:{plugins:{legend:{display:false}},scales:{x:{grid:{display:false}},y:{min:3,max:5,grid:{color:'#1e1e1e'}}}}});
-  if(ad){CHS.gs=new Chart(document.getElementById('c-gstack'),{type:'bar',data:{labels:ad.map(g=>g.age_group),datasets:[{label:'Fiction',data:ad.map(g=>g.fiction_pct),backgroundColor:'#e87e9e',borderRadius:4},{label:'Non-Fiction',data:ad.map(g=>g.nonfiction_pct),backgroundColor:'#7eb8e8',borderRadius:4}]},options:{responsive:true,plugins:{legend:{position:'bottom',labels:{boxWidth:9,usePointStyle:true,padding:12}}},scales:{x:{stacked:true,grid:{display:false}},y:{stacked:true,max:100,grid:{color:'#1e1e1e'},ticks:{callback:v=>v+'%'}}}}});}
 }
 
 /* ── DEMOGRAPHICS ── */
@@ -414,7 +408,6 @@ async function loadDemo(){
   if(sd){CHS.ds=new Chart(document.getElementById('c-state'),{type:'bar',data:{labels:sd.map(s=>s.state),datasets:[{data:sd.map(s=>s.reads),backgroundColor:PALETTE,borderRadius:6,borderSkipped:false}]},options:{indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{grid:{color:'#1e1e1e'},ticks:{callback:v=>fmt(v)}},y:{grid:{display:false}}}}});}
 }
 
-/* init */
 loadDash();
 </script>
 </body>
